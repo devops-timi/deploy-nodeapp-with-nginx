@@ -43,7 +43,7 @@ jobs:
         run: |
           terraform init -migrate-state
           terraform plan
-          terraform apply -auto-approve --refresh-only
+          terraform apply -auto-approve
           echo "EC2_IP=$(terraform output -raw instance_public_ip)" >> $GITHUB_OUTPUT
           echo "ECR_URL=$(terraform output -raw ecr_repository_url)" >> $GITHUB_OUTPUT
       
