@@ -1,0 +1,12 @@
+{
+  "name": "node-ec2-app",
+  "version": "1.0.0",
+  "description": "Simple Node.js app serving HTML and CSS behind Nginx on EC2",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.22.1"
+  }
+}
