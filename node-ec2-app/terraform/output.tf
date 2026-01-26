@@ -1,5 +1,5 @@
 output "instance_public_ip" {
-  value = aws_instance.node_app_ec2.public_ip
+  value = aws_instance.app_server.public_ip
 }
 
 output "ec2_instance_id" {
