@@ -12,6 +12,11 @@ jobs:
   provision:
     name: Provision EC2 and ECR with Terraform
     runs-on: ubuntu-latest
+
+    outputs:
+      EC2_IP: ${{ steps.vars.outputs.EC2_IP }}
+      ECR_URL: ${{ steps.vars.outputs.ECR_URL }}
+
     defaults:
       run:
         working-directory: node-ec2-app/terraform # Path to TF files
@@ -36,7 +41,7 @@ jobs:
         id: vars
         working-directory: ./node-ec2-app/terraform
         run: |
-          terraform init
+          terraform init -migrate-state
           terraform plan
           terraform apply -auto-approve --refresh-only
           echo "EC2_IP=$(terraform output -raw instance_public_ip)" >> $GITHUB_OUTPUT
