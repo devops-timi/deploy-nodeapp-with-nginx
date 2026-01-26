@@ -14,9 +14,5 @@ variable "instance_key" {
   default     = "us-connect"
 }
 
-variable "allowed_ssh_cidr" {
-  description = "CIDR block allowed to SSH into EC2 instance"
-  type        = string
-  default     = "197.211.59.82"
-}
+
 
