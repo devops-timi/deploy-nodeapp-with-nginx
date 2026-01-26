@@ -1,116 +1,73 @@
-name: Infrastructure-Provisioning
+name: Deploy Containerized App with Nginx
 on:
   push:
     branches:
       - main  
-  
-env:
-  AWS_REGION: us-east-1
-  TF_VERSION: 1.6.0
 
 jobs:
-  provision:
-    name: Provision EC2 and ECR with Terraform
+  configure:
+    name: Configure EC2 with Ansible
     runs-on: ubuntu-latest
-
-    outputs:
-      EC2_IP: ${{ steps.vars.outputs.EC2_IP }}
-      ECR_URL: ${{ steps.vars.outputs.ECR_URL }}
 
     defaults:
       run:
-        working-directory: node-ec2-app/terraform # Path to TF files
+        working-directory: ansible 
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: ${{ env.TF_VERSION }}
-      
-      - name: Get EC2 IP and ECR URL
-        id: vars
-        working-directory: ./node-ec2-app/terraform
-        run: |
-          terraform init -migrate-state
-          terraform plan
-          terraform apply -auto-approve
-          echo "EC2_IP=$(terraform output -raw instance_public_ip)" >> $GITHUB_OUTPUT
-          echo "ECR_URL=$(terraform output -raw ecr_repository_url)" >> $GITHUB_OUTPUT
-      
-      - name: Wait for EC2 User Data to Complete
-        run: |
-          echo "Waiting for EC2 user data to complete..."
-          echo "This takes about 3-5 minutes..."
-          sleep 180  # Wait 3 minutes for user data
-
-  build-and-deploy:
-    name: Build and Deploy Application
-    runs-on: ubuntu-latest
-    needs: provision
-
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Login to Amazon ECR
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build and Push Docker Image
-        working-directory: ./node-ec2-app
-        run: |
-          docker build -t ${{ needs.provision.outputs.ECR_URL }}:latest .
-          docker push ${{ needs.provision.outputs.ECR_URL }}:latest
+      - name: Install Ansible
+        run: bash ansible.sh  
 
       - name: Setup SSH Key
         run: |
           mkdir -p ~/.ssh
+          # This command successfully creates ~/.ssh/deploy.pem
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy.pem
           chmod 600 ~/.ssh/deploy.pem
 
-      - name: Deploy to EC2
+      - name: Run Ansible Playbook
+        # We need to disable host key checking in the workflow env for this to connect easily
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: "False"
         run: |
-          ssh -i ~/.ssh/deploy.pem \
-              -o StrictHostKeyChecking=no \
-              ubuntu@${{ needs.provision.outputs.EC2_IP }} << 'ENDSSH'
-          
-          # Login to ECR
-          aws ecr get-login-password --region ${{ env.AWS_REGION }} | \
-            docker login --username AWS --password-stdin ${{ needs.provision.outputs.ECR_URL }}
-          
-          # Pull latest image
-          docker pull ${{ needs.provision.outputs.ECR_URL }}:latest
-          
-          # Stop old container
-          docker stop node-app || true
-          docker rm node-app || true
+          # This command now works because the inventory file path matches the created key path
+          ansible-playbook -i inventory.ini ansible/setup-server.yml    
 
-          # Run new container
-          docker run -d \
-            --name node-app \
-            --restart unless-stopped \
-            -p 80:3000 \
-            ${{ needs.provision.outputs.ECR_URL }}:latest
-          
-          # Verify
-          sleep 5
-          docker ps | grep node-app
-          
-          echo "✅ Deployment complete!"
-          ENDSSH
+  build-and-deploy:
+    name: Build and Deploy Application
+    runs-on: ubuntu-latest
+    needs: configure
+
+    steps:
+
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+       # --- ADD THIS STEP ---
+      - name: Copy source code to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: 3.80.80.83 # Your EC2 IP
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "node-ec2-app" # The current directory on the runner (your repo root)
+          target: "/home/ubuntu/deploy-nodeapp-with-nginx" # The destination directory on the EC2
+      # ---------------------
+
+      - name: Deploy Container via SSH
+        uses: appleboy/ssh-action@v1.0.7 #Third-party GitHub Action designed to easily run SSH commands on a remote server within your automated workflow
+        with:
+          host: 3.80.80.83 # Replace with your actual IP or a variable
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /home/ubuntu/deploy-nodeapp-with-nginx/node-ec2-app # Navigate to home directory on EC2
+            # Use SCP previously or make sure code is there
+            # Build the image remotely on the EC2 instance
+            docker build -t node-nginx-app:latest .
+            docker run -d -p 3000:3000 --name node-app --restart unless-stopped node-nginx-app:latest
+            sleep 5
+            docker ps -a # Verify remotely
+            echo "✅ Deployment complete!"
