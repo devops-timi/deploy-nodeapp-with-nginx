@@ -38,7 +38,7 @@ jobs:
         run: |
           terraform init
           terraform plan
-          terraform apply -auto-approve
+          terraform apply -auto-approve --refresh-only
           echo "EC2_IP=$(terraform output -raw instance_public_ip)" >> $GITHUB_OUTPUT
           echo "ECR_URL=$(terraform output -raw ecr_repository_url)" >> $GITHUB_OUTPUT
       
@@ -70,8 +70,8 @@ jobs:
       - name: Build and Push Docker Image
         working-directory: ./node-ec2-app
         run: |
-          docker build -t ${{ needs.provision.outputs.ecr_url }}:latest .
-          docker push ${{ needs.provision.outputs.ecr_url }}:latest
+          docker build -t ${{ needs.provision.outputs.ECR_URL }}:latest .
+          docker push ${{ needs.provision.outputs.ECR_URL }}:latest
 
       - name: Setup SSH Key
         run: |
@@ -83,14 +83,14 @@ jobs:
         run: |
           ssh -i ~/.ssh/deploy.pem \
               -o StrictHostKeyChecking=no \
-              ubuntu@${{ needs.provision.outputs.ec2_ip }} << 'ENDSSH'
+              ubuntu@${{ needs.provision.outputs.EC2_IP }} << 'ENDSSH'
           
           # Login to ECR
           aws ecr get-login-password --region ${{ env.AWS_REGION }} | \
-            docker login --username AWS --password-stdin ${{ needs.provision.outputs.ecr_url }}
+            docker login --username AWS --password-stdin ${{ needs.provision.outputs.ECR_URL }}
           
           # Pull latest image
-          docker pull ${{ needs.provision.outputs.ecr_url }}:latest
+          docker pull ${{ needs.provision.outputs.ECR_URL }}:latest
           
           # Stop old container
           docker stop node-app || true
@@ -101,7 +101,7 @@ jobs:
             --name node-app \
             --restart unless-stopped \
             -p 80:3000 \
-            ${{ needs.provision.outputs.ecr_url }}:latest
+            ${{ needs.provision.outputs.ECR_URL }}:latest
           
           # Verify
           sleep 5
