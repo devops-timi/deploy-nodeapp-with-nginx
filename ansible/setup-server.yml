@@ -1,0 +1,92 @@
+---
+- name: Install Nginx and Docker
+  hosts: all
+  become: yes
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600  # Optional: skip if updated in the last hour
+    
+    - name: Install required packages
+      apt:
+        name:
+          - nginx
+          - docker.io
+        state: present
+
+    - name: Ensure Docker service is started and enabled
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+    
+    - name: Add Ubuntu to docker group
+      user:
+        name: ubuntu
+        groups: docker
+        append: yes
+    
+    - name: Reset connection to apply group changes
+      ansible.builtin.meta: reset_connection
+
+    - name: Create Nginx reverse proxy configuration
+      copy:
+        content: |
+          server {
+            listen 80;
+            server_name _;
+
+            location / {
+              proxy_pass http://127.0.0.1:3000;
+              proxy_http_version 1.1;
+
+              proxy_set_header Host $host;
+              proxy_set_header X-Real-IP $remote_addr;
+              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto $scheme;
+            }
+          }
+        dest: /etc/nginx/sites-available/nodeapp
+        owner: root
+        group: root
+        mode: '0644'
+      notify: restart nginx
+    
+    - name: Enable Nginx configuration
+      file:
+        src: /etc/nginx/sites-available/nodeapp
+        dest: /etc/nginx/sites-enabled/nodeapp
+        state: link
+      notify: restart nginx
+
+    - name: Test Nginx configuration
+      command: nginx -t
+      register: nginx_test
+      changed_when: false
+
+    - name: Remove default Nginx config
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+      notify: restart nginx
+      
+    - name: Ensure Nginx is started and enabled
+      systemd:
+        name: nginx
+        state: started
+        enabled: yes
+
+  handlers:
+    - name: restart nginx
+      systemd:
+        name: nginx
+        state: restarted
+      listen: restart nginx
+
+    - name: restart docker
+      systemd:
+        name: docker
+        state: restarted
+      listen: restart docker
