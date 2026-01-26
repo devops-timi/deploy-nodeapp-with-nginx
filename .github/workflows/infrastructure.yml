@@ -33,7 +33,7 @@ jobs:
           ANSIBLE_HOST_KEY_CHECKING: "False"
         run: |
           # This command now works because the inventory file path matches the created key path
-          ansible-playbook -i inventory.ini ansible/setup-server.yml    
+          ansible-playbook -i inventory.ini setup-server.yml    
 
   build-and-deploy:
     name: Build and Deploy Application
