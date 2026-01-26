@@ -77,7 +77,7 @@ resource "aws_instance" "app_server" {
 }
 
 resource "aws_iam_role" "ec2_ecr_role" {
-  name = "ec2-ecr-access-role"
+  name = "ec2-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
