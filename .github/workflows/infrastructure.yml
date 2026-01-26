@@ -23,8 +23,8 @@ jobs:
       - name: Setup SSH Key
         run: |
           mkdir -p ~/.ssh
-          # This command successfully creates ~/.ssh/deploy.pem
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy.pem
+          # This command successfully creates ~/.ssh/us-connect.pem
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/us-connect.pem
           chmod 600 ~/.ssh/deploy.pem
 
       - name: Run Ansible Playbook
