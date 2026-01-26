@@ -57,7 +57,7 @@ jobs:
       # ---------------------
 
       - name: Deploy Container via SSH
-        uses: appleboy/ssh-action@v1.0.7 #Third-party GitHub Action designed to easily run SSH commands on a remote server within your automated workflow
+        uses: appleboy/ssh-action@v0.1.7 #Third-party GitHub Action designed to easily run SSH commands on a remote server within your automated workflow
         with:
           host: 3.80.80.83 # Replace with your actual IP or a variable
           username: ubuntu
