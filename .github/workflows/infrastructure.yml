@@ -40,34 +40,51 @@ jobs:
     runs-on: ubuntu-latest
     needs: configure
 
+    defaults:
+      run:
+        working-directory: node-ec2-app
+
     steps:
 
       - name: Checkout Code
         uses: actions/checkout@v4
-
-       # --- ADD THIS STEP ---
-      - name: Copy source code to EC2
-        uses: appleboy/scp-action@v0.1.7
+      
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          host: 3.80.80.83 # Your EC2 IP
-          username: ubuntu
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "node-ec2-app" # The current directory on the runner (your repo root)
-          target: "/home/ubuntu/deploy-nodeapp-with-nginx" # The destination directory on the EC2
-      # ---------------------
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+      
+      - name: Build image and Push to ECR
+        run: |
+          aws sts get-caller-identity
+          docker ps
+
+          aws ecr get-login-password --region us-east-1 \
+          | docker login --username AWS --password-stdin 596387592424.dkr.ecr.us-east-1.amazonaws.com
+
+          docker build -t 596387592424.dkr.ecr.us-east-1.amazonaws.com/node-nginx-app:latest .
+
+          docker images
+
+          docker push 596387592424.dkr.ecr.us-east-1.amazonaws.com/node-nginx-app:latest
+
 
       - name: Deploy Container via SSH
         uses: appleboy/ssh-action@v0.1.7 #Third-party GitHub Action designed to easily run SSH commands on a remote server within your automated workflow
         with:
-          host: 3.80.80.83 # Replace with your actual IP or a variable
+          host: 34.229.179.1 # Replace with your actual IP or a variable
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          target: "/home/ubuntu/deploy-nodeapp-with-nginx"
           script: |
-            cd /home/ubuntu/deploy-nodeapp-with-nginx/node-ec2-app # Navigate to home directory on EC2
-            # Use SCP previously or make sure code is there
-            # Build the image remotely on the EC2 instance
-            docker build -t node-nginx-app:latest .
-            docker run -d -p 3000:3000 --name node-app --restart unless-stopped node-nginx-app:latest
+            cd /home/ubuntu/deploy-nodeapp-with-nginx # Navigate to home directory on EC2
+            docker stop node-app || true
+            docker rm node-app || true
+            # Pull the image remotely on the EC2 instance
+            docker pull 596387592424.dkr.ecr.us-east-1.amazonaws.com/node-nginx-app:latest
+            docker run -d -p 3000:3000 --name node-app --restart unless-stopped 596387592424.dkr.ecr.us-east-1.amazonaws.com/node-nginx-app:latest
             sleep 5
             docker ps -a # Verify remotely
             echo "✅ Deployment complete!"
