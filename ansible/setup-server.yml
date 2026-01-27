@@ -14,7 +14,19 @@
         name:
           - nginx
           - docker.io
+          - unzip       # needed for awscli zip
+          - curl        # needed to download awscli
         state: present
+
+    - name: Install AWS CLI v2 if not present
+      shell: |
+        curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+        unzip awscliv2.zip
+        ./aws/install
+        rm -rf awscliv2.zip aws
+        aws --version
+      args:
+        creates: /usr/local/bin/aws
 
     - name: Ensure Docker service is started and enabled
       systemd:
@@ -90,3 +102,11 @@
         name: docker
         state: restarted
       listen: restart docker
+
+    - name: Create app deployment directory
+      file:
+        path: /home/ubuntu/deploy-nodeapp-with-nginx
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
