@@ -84,6 +84,8 @@ jobs:
             docker stop node-app || true
             docker rm node-app || true
             # Pull the image remotely on the EC2 instance
+            aws ecr get-login-password --region us-east-1 \
+            | docker login --username AWS --password-stdin 596387592424.dkr.ecr.us-east-1.amazonaws.com
             docker pull 596387592424.dkr.ecr.us-east-1.amazonaws.com/node-nginx-app:latest
             docker run -d -p 3000:3000 --name node-app --restart unless-stopped 596387592424.dkr.ecr.us-east-1.amazonaws.com/node-nginx-app:latest
             sleep 5
