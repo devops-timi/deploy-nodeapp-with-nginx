@@ -74,12 +74,11 @@ jobs:
       - name: Deploy Container via SSH
         uses: appleboy/ssh-action@v0.1.7 #Third-party GitHub Action designed to easily run SSH commands on a remote server within your automated workflow
         with:
-          host: 34.229.179.1 # Replace with your actual IP or a variable
+          host: 98.81.204.204 # Replace with your actual IP or a variable
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           target: "/home/ubuntu/deploy-nodeapp-with-nginx"
           script: |
-            mkdir -p /home/ubuntu/deploy-nodeapp-with-nginx
             cd /home/ubuntu/deploy-nodeapp-with-nginx # Navigate to home directory on EC2
             docker stop node-app || true
             docker rm node-app || true
