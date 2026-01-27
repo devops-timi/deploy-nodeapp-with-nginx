@@ -79,6 +79,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           target: "/home/ubuntu/deploy-nodeapp-with-nginx"
           script: |
+            mkdir -p /home/ubuntu/deploy-nodeapp-with-nginx
             cd /home/ubuntu/deploy-nodeapp-with-nginx # Navigate to home directory on EC2
             docker stop node-app || true
             docker rm node-app || true
